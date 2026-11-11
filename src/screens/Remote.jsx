@@ -1,12 +1,45 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useSyncExternalStore } from 'react';
 import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Home, Menu, Plus, Minus, VolumeX,
   Play, Rewind, FastForward, Square, Settings, LogIn, Grid3x3, Info, BookOpen, Captions, LogOut, Hand, Gamepad2,
+  Eye, Maximize2, X, Loader,
 } from 'lucide-react';
 import { useStore } from '../store.js';
 import { tv } from '../tv.js';
 import { fx } from '../sfx.js';
 import { Key, Sheet } from '../components/ui.jsx';
+import { screenview } from '../screenview.js';
+
+// Compact live TV preview shown above the remote so you can see what you're doing.
+function RemotePreview() {
+  useSyncExternalStore(cb => screenview.subscribe(cb), () => screenview._gen + ':' + screenview.state + ':' + (screenview.frame?.time || 0));
+  const show = useStore(s => s.remotePreview);
+  const supported = screenview.supported();
+  useEffect(() => { if (show && supported && screenview.state === 'off' && !screenview.frame) screenview.start(); }, [show, supported]);
+  if (!supported) return null;
+  const { state, frame } = screenview;
+  if (!show) {
+    return (
+      <button className="prev-open" onClick={() => { fx.tap(); useStore.getState().set({ remotePreview: true }); screenview.start(); }}>
+        <Eye size={16} /> Tampilkan layar TV di sini
+      </button>
+    );
+  }
+  return (
+    <div className="prev-wrap">
+      <div className="prev-shot" onClick={() => { fx.select(); useStore.getState().set({ tab: 'screen' }); }}>
+        {frame ? <img src={frame.src} alt="Layar TV" /> : (
+          <div className="center" style={{ height: '100%', gap: 8, color: 'var(--muted)', fontSize: 12 }}>
+            {state === 'error' ? 'Gagal — ketuk Layar untuk atur' : <><span className="spinner" style={{ width: 16, height: 16, color: 'var(--accent)' }} /> Memuat layar TV…</>}
+          </div>
+        )}
+        {frame && <span className="prev-badge">● LIVE</span>}
+        {frame && <span className="shot-zoom" style={{ width: 26, height: 26 }}><Maximize2 size={13} /></span>}
+      </div>
+      <button className="prev-x" onClick={e => { e.stopPropagation(); fx.back(); useStore.getState().set({ remotePreview: false }); screenview.stop(); }} aria-label="Tutup preview"><X size={15} /></button>
+    </div>
+  );
+}
 
 function Dpad() {
   const [active, setActive] = useState(null);
@@ -101,6 +134,7 @@ export default function Remote() {
   const cur = modes.find(m => m[0] === mode) ? mode : 'dpad';
   return (
     <div className="scroll page-in" style={{ padding: '6px 18px 18px' }}>
+      <RemotePreview />
       <div className="row" style={{ gap: 10, marginBottom: 14 }}>
         <Key k="input" label="Input" className="small-key" style={{ width: 58, flex: 'none' }}><LogIn size={19} /><span className="lbl">Input</span></Key>
         <div className="seg grow">

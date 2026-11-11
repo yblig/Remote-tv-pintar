@@ -1,0 +1,11 @@
+[
+  {"eval": "window.__store.getState().set({onboarded:true})"}, {"wait": 500},
+  {"eval": "document.querySelector('.card .btn.primary').click()"}, {"wait": 3400},
+  {"eval": "document.querySelector('.list-item.pop-in').click()"}, {"wait": 2000},
+  {"eval": "window.__store.getState().pairing.submit('A1B2C3')"}, {"wait": 1500},
+  {"eval": "window.__store.getState().set({tab:'screen'})"}, {"wait": 600},
+  {"eval": "[...document.querySelectorAll('.btn.primary')].find(b=>b.textContent.includes('Mulai pantau')).click()"}, {"wait": 1400, "shot": "a-screen-top"},
+  {"eval": "document.querySelector('.scroll').scrollTo(0, 420)"}, {"wait": 500, "shot": "b-prank"},
+  {"eval": "document.querySelector('.scroll').scrollTo(0, 820)"}, {"wait": 500, "shot": "c-prank2"},
+  {"eval": "window.__store.getState().set({tab:'remote', remotePreview:true})"}, {"wait": 1400, "shot": "d-remote-preview"}
+]

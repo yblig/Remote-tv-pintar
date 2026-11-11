@@ -621,6 +621,105 @@ public class TvBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void adbShell(final PluginCall call) {
+        final String host = call.getString("host");
+        final String cmd = call.getString("cmd", "echo hi");
+        adbPool.execute(() -> {
+            try {
+                byte[] out = adbRun(host, cmd);
+                JSObject r = new JSObject();
+                r.put("out", new String(out, StandardCharsets.UTF_8));
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject(err(e));
+            }
+        });
+    }
+
+    // Pushes base64 data to a file on the TV by appending valid base64 chunks and decoding in-shell.
+    @PluginMethod
+    public void adbPush(final PluginCall call) {
+        final String host = call.getString("host");
+        final String path = call.getString("path");
+        final String b64 = call.getString("data", "");
+        adbPool.execute(() -> {
+            try {
+                String bin = hasToybox(host) ? "toybox base64" : "base64";
+                adbRun(host, ": > '" + path + "'");
+                int cap = Math.max(2048, adb.maxData() - 1024);
+                int CH = Math.min(48 * 1024, cap) / 4 * 4; // multiple of 4, within one ADB payload
+                for (int i = 0; i < b64.length(); i += CH) {
+                    String chunk = b64.substring(i, Math.min(b64.length(), i + CH));
+                    byte[] out = adbRun(host, "echo '" + chunk + "' | " + bin + " -d >> '" + path + "'");
+                    String s = new String(out, StandardCharsets.UTF_8);
+                    if (s.toLowerCase().contains("not found") || s.toLowerCase().contains("usage:")) throw new Exception("PUSH_FAILED " + s.trim());
+                }
+                byte[] sz = adbRun(host, "wc -c < '" + path + "' 2>/dev/null; ls -l '" + path + "' 2>&1");
+                JSObject r = new JSObject();
+                r.put("info", new String(sz, StandardCharsets.UTF_8).trim());
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject(err(e));
+            }
+        });
+    }
+
+    private Boolean toybox = null;
+    private boolean hasToybox(String host) {
+        if (toybox == null) {
+            try { toybox = new String(adbRun(host, "toybox 2>/dev/null | head -c 3"), StandardCharsets.UTF_8).length() > 0; }
+            catch (Exception e) { toybox = false; }
+        }
+        return toybox;
+    }
+
+    // Synthesizes text to a WAV file using the phone's TTS engine, returns it as base64.
+    @PluginMethod
+    public void ttsToFile(final PluginCall call) {
+        final String text = call.getString("text", "");
+        final String lang = call.getString("lang", "id");
+        if (text.trim().isEmpty()) { call.reject("EMPTY"); return; }
+        final java.util.concurrent.atomic.AtomicReference<android.speech.tts.TextToSpeech> ref = new java.util.concurrent.atomic.AtomicReference<>();
+        android.speech.tts.TextToSpeech tts = new android.speech.tts.TextToSpeech(getContext(), status -> {
+            android.speech.tts.TextToSpeech t = ref.get();
+            if (status != android.speech.tts.TextToSpeech.SUCCESS || t == null) { call.reject("TTS_UNAVAILABLE"); return; }
+            try {
+                try { t.setLanguage(new java.util.Locale(lang, "ID")); } catch (Exception ignored) {}
+                final java.io.File f = new java.io.File(getContext().getCacheDir(), "rtp_tts.wav");
+                t.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+                    public void onStart(String id) {}
+                    public void onError(String id) { call.reject("TTS_ERROR"); t.shutdown(); }
+                    public void onError(String id, int code) { call.reject("TTS_ERROR " + code); t.shutdown(); }
+                    public void onDone(String id) {
+                        try {
+                            byte[] data = readFile(f);
+                            JSObject r = new JSObject();
+                            r.put("data", android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP));
+                            r.put("ext", "wav");
+                            call.resolve(r);
+                        } catch (Exception e) { call.reject(err(e)); }
+                        finally { t.shutdown(); }
+                    }
+                });
+                android.os.Bundle p = new android.os.Bundle();
+                int rc = t.synthesizeToFile(text, p, f, "rtp");
+                if (rc != android.speech.tts.TextToSpeech.SUCCESS) { call.reject("TTS_SYNTH_FAILED"); t.shutdown(); }
+            } catch (Exception e) { call.reject(err(e)); t.shutdown(); }
+        });
+        ref.set(tts);
+    }
+
+    private static byte[] readFile(java.io.File f) throws Exception {
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            ByteArrayOutputStream o = new ByteArrayOutputStream();
+            byte[] b = new byte[16384];
+            int n;
+            while ((n = in.read(b)) > 0) o.write(b, 0, n);
+            return o.toByteArray();
+        }
+    }
+
+    @PluginMethod
     public void adbClose(PluginCall call) {
         adbPool.execute(adb::close);
         call.resolve();

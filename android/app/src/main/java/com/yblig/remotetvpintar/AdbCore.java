@@ -40,6 +40,8 @@ final class AdbCore {
         byte[] data;
     }
 
+    synchronized int maxData() { return maxData; }
+
     synchronized boolean isConnected(String h) { return sock != null && !sock.isClosed() && h.equals(host); }
 
     private void write(int cmd, int a0, int a1, byte[] data) throws IOException {

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { storage } from './lib/storage.js';
 
 const SAVE_KEYS = ['onboarded', 'tvs', 'lastTvId', 'theme', 'accent', 'sound', 'haptics', 'shake', 'volumeKeys',
-  'autoReconnect', 'favTexts', 'history', 'macros', 'channels', 'remoteMode'];
+  'autoReconnect', 'remotePreview', 'favTexts', 'history', 'macros', 'channels', 'remoteMode'];
 
 const DEFAULT_MACROS = [
   { id: 'm1', name: 'Mode Nonton', icon: 'film', steps: [{ key: 'home' }, { wait: 1200 }, { app: 'youtube' }] },
@@ -21,6 +21,7 @@ const defaults = {
   shake: false,
   volumeKeys: true,
   autoReconnect: true,
+  remotePreview: false,
   favTexts: ['terima kasih', 'film terbaru 2026', 'musik santai'],
   history: [],
   macros: DEFAULT_MACROS,

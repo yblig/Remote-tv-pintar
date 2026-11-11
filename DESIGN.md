@@ -66,3 +66,7 @@ terhubung, error saat gagal.
 TV tersimpan (jenis, host, nama, token/kunci, MAC, merek IR), TV terakhir, sertifikat klien ATV
 (native SharedPreferences), teks favorit, riwayat ketik, makro, channel favorit, tema/aksen,
 suara/getar/kocok/tombol volume.
+
+
+## Update: Fitur Jahil (prank, Android TV)
+33 Kirim gambar kejutan ke TV (preload ADB push ke /data/local/tmp + am start VIEW, beberapa fallback) · 34 Preview layar TV di atas remote (screenview singleton bersama) · 35 Ngomong lewat TV: rekam suara (capacitor-voice-recorder → push → am VIEW audio) + teks jadi suara (TTS HP synthesizeToFile → push → play). Native baru: adbShell, adbPush (base64 chunked ≤ maxData), ttsToFile. Jujur: dengar mic TV tidak didukung tanpa root; tampil gambar/audio bergantung pemutar di TV (semua error ditampilkan + bisa disalin).

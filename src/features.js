@@ -31,4 +31,7 @@ export const FEATURES = [
   { t: 'Tema & warna aksen', d: 'Gelap, terang, atau ikut sistem + 6 warna.' },
   { t: 'Lihat layar TV', d: 'Pantau layar TV dari HP tanpa share screen (Android TV/Google TV).' },
   { t: 'Bagikan layar HP ke TV', d: 'Buka Cast / Smart View / Screen Mirroring dengan sekali ketuk.' },
+  { t: 'Gambar kejutan ke TV', d: 'Kirim gambar (preset atau dari galeri) yang muncul seketika di layar TV — buat jahilin (Android TV).' },
+  { t: 'Preview TV di atas remote', d: 'Lihat layar TV langsung di atas tombol remote sambil mengontrol.' },
+  { t: 'Ngomong lewat TV', d: 'Rekam suaramu atau ketik teks, lalu diputar/diucapkan lewat speaker TV (Android TV).' },
 ];
