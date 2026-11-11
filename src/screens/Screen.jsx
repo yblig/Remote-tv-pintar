@@ -7,6 +7,9 @@ import { fx } from '../sfx.js';
 import { bridge } from '../bridge.js';
 import { native } from '../lib/native.js';
 import { Key } from '../components/ui.jsx';
+import { Clipboard } from '@capacitor/clipboard';
+
+const srcOf = r => r.dataUrl || ((bridge.isNative ? Capacitor.convertFileSrc(r.path) : r.path) + '?t=' + r.time);
 
 const RATES = [[2000, '2 dtk'], [5000, '5 dtk'], [10000, '10 dtk']];
 
@@ -46,7 +49,7 @@ function Watch() {
       if (!run.current.on) return;
       try {
         const r = await d.capture();
-        const src = (bridge.isNative ? Capacitor.convertFileSrc(r.path) : r.path) + '?t=' + r.time;
+        const src = srcOf(r);
         setShot({ src, time: r.time });
         setState('live');
         const tick = async () => {
@@ -54,7 +57,7 @@ function Watch() {
           try {
             const x = await d.capture();
             if (!run.current.on) return;
-            setShot({ src: (bridge.isNative ? Capacitor.convertFileSrc(x.path) : x.path) + '?t=' + x.time, time: x.time });
+            setShot({ src: srcOf(x), time: x.time });
           } catch (e) { run.current.on = false; fx.error(); setErr(String(e?.message || e)); setState('error'); return; }
           run.current.timer = setTimeout(tick, rateRef.current);
         };
@@ -118,7 +121,8 @@ function Watch() {
           ) : (
             <p style={{ margin: '6px 0 0', color: 'var(--muted)', fontSize: 13, lineHeight: 1.5 }}>Model LG ini tidak mengizinkan tangkapan layar dari aplikasi.</p>
           )}
-          <div className="li-sub" style={{ marginTop: 6, fontSize: 11 }}>{err.slice(0, 90)}</div>
+          <div style={{ marginTop: 8, fontSize: 11, lineHeight: 1.45, color: 'var(--faint)', maxHeight: 96, overflowY: 'auto', wordBreak: 'break-all', userSelect: 'text', WebkitUserSelect: 'text', background: 'var(--surface2)', borderRadius: 10, padding: 8 }}>{err}</div>
+          <button className="chip" style={{ marginTop: 8 }} onClick={() => { fx.tap(); Clipboard.write({ string: err }).then(() => useStore.getState().showToast('Detail error disalin')).catch(() => {}); }}>Salin detail error</button>
         </div>
       )}
 

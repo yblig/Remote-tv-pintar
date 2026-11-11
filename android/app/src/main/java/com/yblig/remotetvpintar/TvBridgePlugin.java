@@ -72,7 +72,6 @@ public class TvBridgePlugin extends Plugin {
     private AtvCore atv;
     private final AdbCore adb = new AdbCore();
     private final ExecutorService adbPool = Executors.newSingleThreadExecutor();
-    private int shotN = 0;
 
     @Override
     public void load() {
@@ -514,17 +513,69 @@ public class TvBridgePlugin extends Plugin {
         adb.connect(host, 5555, atv.key(), atv.pub(), () -> notifyListeners("adbPrompt", new JSObject()));
     }
 
-    private JSObject saveShot(byte[] data, String ext) throws Exception {
-        java.io.File dir = new java.io.File(getContext().getCacheDir(), "tvshots");
-        if (!dir.exists()) dir.mkdirs();
-        shotN = (shotN + 1) % 4;
-        java.io.File f = new java.io.File(dir, "shot" + shotN + "." + ext);
-        try (java.io.FileOutputStream o = new java.io.FileOutputStream(f)) { o.write(data); }
+    /** Decodes a screenshot (PNG/JPEG bytes, or a raw RGBA screencap dump) and returns a small JPEG data URL. */
+    private JSObject shotResult(byte[] data, boolean raw) throws Exception {
+        android.graphics.Bitmap bmp = null;
+        if (raw) {
+            int w = intLE(data, 0), h = intLE(data, 4);
+            if (w <= 0 || h <= 0 || w > 8192 || h > 8192) throw new Exception("RAW_BAD_HEADER");
+            int px = w * h * 4;
+            int off = data.length - px; // header is 12 or 16 bytes depending on Android version
+            if (off < 12 || off > 32) throw new Exception("RAW_BAD_SIZE " + data.length + " " + w + "x" + h);
+            bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+            bmp.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(data, off, px));
+        } else {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            int sample = 1;
+            while (o.outWidth / (sample * 2) >= 1280) sample *= 2;
+            o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = sample;
+            bmp = android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (bmp == null) throw new Exception("DECODE_FAILED");
+        }
+        int maxW = 1600;
+        if (bmp.getWidth() > maxW) {
+            android.graphics.Bitmap sc = android.graphics.Bitmap.createScaledBitmap(bmp, maxW, Math.round(bmp.getHeight() * (maxW / (float) bmp.getWidth())), true);
+            bmp.recycle();
+            bmp = sc;
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 78, out);
         JSObject r = new JSObject();
-        r.put("path", f.getAbsolutePath());
-        r.put("bytes", data.length);
+        r.put("dataUrl", "data:image/jpeg;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP));
+        r.put("width", bmp.getWidth());
+        r.put("height", bmp.getHeight());
         r.put("time", System.currentTimeMillis());
+        bmp.recycle();
         return r;
+    }
+
+    private static int intLE(byte[] d, int o) {
+        return (d[o] & 0xFF) | (d[o + 1] & 0xFF) << 8 | (d[o + 2] & 0xFF) << 16 | (d[o + 3] & 0xFF) << 24;
+    }
+
+    /** Finds the PNG signature anywhere in the output (some TVs print warnings before the image). */
+    private static int pngStart(byte[] d) {
+        if (d == null) return -1;
+        for (int i = 0; i + 8 <= d.length && i < 64 * 1024; i++) {
+            if ((d[i] & 0xFF) == 0x89 && d[i + 1] == 'P' && d[i + 2] == 'N' && d[i + 3] == 'G'
+                    && d[i + 4] == 0x0D && d[i + 5] == 0x0A) return i;
+        }
+        return -1;
+    }
+
+    private byte[] adbRun(String host, String cmd) throws Exception {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                adbEnsure(host);
+                return adb.exec(cmd);
+            } catch (java.io.IOException io) {
+                adb.close();
+                if (attempt >= 1) throw io;
+            }
+        }
     }
 
     @PluginMethod
@@ -539,23 +590,30 @@ public class TvBridgePlugin extends Plugin {
     public void adbScreenshot(final PluginCall call) {
         final String host = call.getString("host");
         adbPool.execute(() -> {
+            StringBuilder diag = new StringBuilder();
             try {
-                byte[] png = null;
-                for (int attempt = 0; attempt < 2; attempt++) {
-                    try {
-                        adbEnsure(host);
-                        png = adb.exec("screencap -p");
-                        break;
-                    } catch (java.io.IOException io) {
-                        adb.close();
-                        if (attempt == 1) throw io;
+                // 1) PNG with warnings discarded, 2) plain PNG (warnings stripped by search), 3) raw pixels.
+                String[] pngCmds = {"screencap -p 2>/dev/null", "screencap -p"};
+                for (String cmd : pngCmds) {
+                    byte[] out = adbRun(host, cmd);
+                    int at = pngStart(out);
+                    if (at >= 0) {
+                        byte[] png = at == 0 ? out : java.util.Arrays.copyOfRange(out, at, out.length);
+                        try { call.resolve(shotResult(png, false)); return; }
+                        catch (Exception de) { diag.append("[decode ").append(de.getMessage()).append("] "); }
+                    } else {
+                        diag.append("[").append(cmd).append(": ").append(out.length).append("B ")
+                            .append(new String(out, 0, Math.min(out.length, 160), StandardCharsets.UTF_8).replaceAll("[^\\x20-\\x7E]", "?")).append("] ");
                     }
                 }
-                if (png == null || png.length < 8 || (png[1] != 'P' || png[2] != 'N' || png[3] != 'G')) {
-                    String msg = png == null ? "" : new String(png, 0, Math.min(png.length, 120), StandardCharsets.UTF_8);
-                    throw new Exception("NO_IMAGE " + msg);
-                }
-                call.resolve(saveShot(png, "png"));
+                byte[] raw = adbRun(host, "screencap 2>/dev/null");
+                try { call.resolve(shotResult(raw, true)); return; }
+                catch (Exception re) { diag.append("[raw ").append(raw.length).append("B ").append(re.getMessage()).append("] "); }
+                try {
+                    byte[] t = adbRun(host, "id -u; getprop ro.build.version.release; screencap -p /data/local/tmp/rtp.png 2>&1; echo rc=$?; ls -l /data/local/tmp/rtp.png 2>&1");
+                    diag.append("[diag ").append(new String(t, StandardCharsets.UTF_8).replace('\n', ' ').trim()).append("]");
+                } catch (Exception ignored) {}
+                throw new Exception("NO_IMAGE " + diag);
             } catch (Exception e) {
                 call.reject(err(e));
             }
@@ -583,7 +641,7 @@ public class TvBridgePlugin extends Plugin {
                     int n;
                     while ((n = in.read(b)) > 0) o.write(b, 0, n);
                 }
-                call.resolve(saveShot(o.toByteArray(), "jpg"));
+                call.resolve(shotResult(o.toByteArray(), false));
             } catch (Exception e) {
                 call.reject(err(e));
             } finally {

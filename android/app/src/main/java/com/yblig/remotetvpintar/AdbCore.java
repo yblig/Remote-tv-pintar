@@ -118,7 +118,7 @@ final class AdbCore {
             }
             if (m.cmd == CNXN) {
                 maxData = Math.max(4096, m.arg1);
-                s.setSoTimeout(15000);
+                s.setSoTimeout(45000);
                 return;
             }
             if (m.cmd == AUTH && m.arg0 == 1) {
