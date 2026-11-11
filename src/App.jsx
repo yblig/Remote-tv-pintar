@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Keyboard as KbIcon, LayoutGrid, Eye, Ellipsis, Power, ChevronDown, RefreshCw } from 'lucide-react';
 import { useStore } from './store.js';
-import { tv, TYPE_LABEL } from './tv.js';
+import { tv, tvLabel } from './tv.js';
 import { fx } from './sfx.js';
 import { bridge } from './bridge.js';
 import { native } from './lib/native.js';
@@ -10,13 +10,20 @@ import Onboarding from './screens/Onboarding.jsx';
 import Connect from './screens/Connect.jsx';
 import PairingLayer from './screens/PairingLayer.jsx';
 import Remote from './screens/Remote.jsx';
+import Projector from './screens/Projector.jsx';
 import Keyboard from './screens/Keyboard.jsx';
 import Apps from './screens/Apps.jsx';
 import Screen from './screens/Screen.jsx';
 import More from './screens/More.jsx';
 
+// The Remote tab shows a projector-tuned layout when the active device is a projector.
+function RemoteTab() {
+  const projector = useStore(s => s.tvs.find(t => t.id === s.activeTvId)?.projector);
+  return projector ? <Projector /> : <Remote />;
+}
+
 const TABS = [
-  ['remote', 'Remote', RemoteGlyph, Remote],
+  ['remote', 'Remote', RemoteGlyph, RemoteTab],
   ['keyboard', 'Keyboard', KbIcon, Keyboard],
   ['apps', 'Aplikasi', LayoutGrid, Apps],
   ['screen', 'Layar', Eye, Screen],
@@ -92,12 +99,12 @@ function TvBar() {
     <>
       <div className="tvbar">
         <button className="tvchip" onClick={() => { if (lost) { fx.tap(); tv.reconnect(); } else { fx.tap(); useStore.getState().set({ tab: 'more' }); } }}>
-          <div className="li-icon" style={{ width: 40, height: 40, borderRadius: 13 }}><TypeIcon type={t?.type} size={20} /></div>
+          <div className="li-icon" style={{ width: 40, height: 40, borderRadius: 13 }}><TypeIcon type={t?.type} projector={t?.projector} size={20} /></div>
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="li-title" style={{ fontSize: 15 }}>{t?.name || 'TV'}</div>
             <div className="row" style={{ gap: 7, marginTop: 3 }}>
               <span className={'dot' + (lost ? ' warn' : '')} />
-              <span className="li-sub" style={{ margin: 0 }}>{lost ? 'Terputus · ketuk untuk sambung ulang' : 'Terhubung · ' + TYPE_LABEL[t?.type]}</span>
+              <span className="li-sub" style={{ margin: 0 }}>{lost ? 'Terputus · ketuk untuk sambung ulang' : 'Terhubung · ' + tvLabel(t)}</span>
             </div>
           </div>
           {lost ? <RefreshCw size={18} color="var(--warn)" /> : <ChevronDown size={18} color="var(--faint)" />}

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, Plus, Radio, ChevronRight, Trash2, Power, Wifi, Info, Zap, Check, X, RotateCcw } from 'lucide-react';
+import { Search, Plus, Radio, ChevronRight, Trash2, Power, Wifi, Info, Zap, Check, X, RotateCcw, Projector } from 'lucide-react';
 import { useStore } from '../store.js';
 import { bridge } from '../bridge.js';
-import { tv, TYPE_LABEL } from '../tv.js';
+import { tv, TYPE_LABEL, tvLabel } from '../tv.js';
 import { fx } from '../sfx.js';
-import { Sheet, TypeIcon } from '../components/ui.jsx';
+import { Sheet, TypeIcon, Switch } from '../components/ui.jsx';
 import { IR_BRANDS, irSend } from '../protocols/ir.js';
+
+const isProjectorName = n => /freestyle|projector|proyektor|lsp|the premiere/i.test(n || '');
 
 let autoTried = false;
 
@@ -42,6 +44,7 @@ export default function Connect() {
   const [scanning, setScanning] = useState(false);
   const [found, setFound] = useState(null);
   const [manual, setManual] = useState(false);
+  const [proj, setProj] = useState(false);
   const [irOpen, setIrOpen] = useState(false);
   const [hasIr, setHasIr] = useState(null);
   const [menuTv, setMenuTv] = useState(null);
@@ -76,7 +79,8 @@ export default function Connect() {
   const connectTo = (d) => {
     fx.tap();
     const saved = useStore.getState().tvs.find(t => t.id === d.type + ':' + d.host);
-    tv.connect(saved || { id: d.type + ':' + d.host, ...d });
+    const proj = d.type === 'samsung' && isProjectorName(d.name) ? { projector: true } : {};
+    tv.connect(saved || { id: d.type + ':' + d.host, ...d, ...proj });
   };
 
   const savedIds = new Set(tvs.map(t => t.id));
@@ -107,10 +111,10 @@ export default function Connect() {
         {fresh.length > 0 && <div className="section-label">Ditemukan</div>}
         {fresh.map((d, i) => (
           <button key={d.host} className="list-item pop-in" style={{ animationDelay: i * 0.07 + 's' }} onClick={() => connectTo(d)}>
-            <div className="li-icon"><TypeIcon type={d.type} /></div>
+            <div className="li-icon"><TypeIcon type={d.type} projector={d.type === 'samsung' && isProjectorName(d.name)} /></div>
             <div className="grow">
               <div className="li-title">{d.name}</div>
-              <div className="li-sub">{TYPE_LABEL[d.type]} · {d.host}</div>
+              <div className="li-sub">{(d.type === 'samsung' && isProjectorName(d.name)) ? 'Samsung Freestyle (proyektor)' : TYPE_LABEL[d.type]} · {d.host}</div>
             </div>
             <span className="badge accent">Hubungkan</span>
           </button>
@@ -120,10 +124,10 @@ export default function Connect() {
         {tvs.map(t => (
           <div key={t.id} className="list-item" style={{ padding: 10, paddingLeft: 14 }}>
             <button className="row grow" style={{ textAlign: 'left', gap: 14 }} onClick={() => connectTo(t)}>
-              <div className="li-icon"><TypeIcon type={t.type} /></div>
+              <div className="li-icon"><TypeIcon type={t.type} projector={t.projector} /></div>
               <div className="grow">
                 <div className="li-title">{t.name}</div>
-                <div className="li-sub">{TYPE_LABEL[t.type]}{t.host ? ' · ' + t.host : ''}</div>
+                <div className="li-sub">{tvLabel(t)}{t.host ? ' · ' + t.host : ''}</div>
               </div>
             </button>
             <button className="icon-btn" onClick={() => { fx.tap(); setMenuTv(t); }} aria-label="Opsi"><ChevronRight size={20} /></button>
@@ -131,6 +135,11 @@ export default function Connect() {
         ))}
 
         <div className="section-label">Cara lain</div>
+        <button className="list-item" onClick={() => { fx.tap(); setProj(true); }}>
+          <div className="li-icon" style={{ background: 'color-mix(in srgb, var(--accent) 16%, var(--surface2))' }}><Projector size={22} /></div>
+          <div className="grow"><div className="li-title">Proyektor Samsung (Freestyle / LS3)</div><div className="li-sub">Mode proyektor dengan pintasan fokus & keystone</div></div>
+          <ChevronRight size={20} color="var(--faint)" />
+        </button>
         <button className="list-item" onClick={() => { fx.tap(); setManual(true); }}>
           <div className="li-icon"><Plus size={22} /></div>
           <div className="grow"><div className="li-title">Tambah manual (alamat IP)</div><div className="li-sub">Lihat IP di Pengaturan › Jaringan pada TV</div></div>
@@ -151,13 +160,21 @@ export default function Connect() {
       </div>
 
       <ManualSheet open={manual} onClose={() => setManual(false)} />
+      <ManualSheet open={proj} onClose={() => setProj(false)} projector />
       <IrWizard open={irOpen} onClose={() => setIrOpen(false)} />
       <Sheet open={!!menuTv} onClose={() => setMenuTv(null)}>
         {menuTv && (
           <>
             <h2>{menuTv.name}</h2>
-            <p className="lead">{TYPE_LABEL[menuTv.type]}{menuTv.host ? ' · ' + menuTv.host : ''}</p>
+            <p className="lead">{tvLabel(menuTv)}{menuTv.host ? ' · ' + menuTv.host : ''}</p>
             <button className="btn primary block" onClick={() => { const t = menuTv; setMenuTv(null); connectTo(t); }}><Zap size={18} /> Hubungkan</button>
+            {menuTv.type === 'samsung' && (
+              <div className="list-item" style={{ marginTop: 10, padding: '12px 14px' }}>
+                <div className="li-icon" style={{ width: 40, height: 40, borderRadius: 13 }}><Projector size={19} /></div>
+                <div className="grow"><div className="li-title" style={{ fontSize: 14.5 }}>Mode proyektor</div><div className="li-sub">Untuk Samsung Freestyle / LS3</div></div>
+                <Switch on={!!menuTv.projector} onChange={v => { useStore.getState().upsertTv({ id: menuTv.id, projector: v }); setMenuTv({ ...menuTv, projector: v }); }} />
+              </div>
+            )}
             {menuTv.mac && (
               <button className="btn block" style={{ marginTop: 10 }} onClick={async () => {
                 const t = menuTv; setMenuTv(null);
@@ -176,7 +193,7 @@ export default function Connect() {
 
 const TYPES = [['androidtv', 'Android / Google TV'], ['samsung', 'Samsung'], ['lg', 'LG webOS'], ['roku', 'Roku']];
 
-function ManualSheet({ open, onClose }) {
+function ManualSheet({ open, onClose, projector = false }) {
   const [type, setType] = useState('androidtv');
   const [ip, setIp] = useState('192.168.1.');
   const [name, setName] = useState('');
@@ -185,23 +202,28 @@ function ManualSheet({ open, onClose }) {
     if (!valid) { fx.error(); return; }
     onClose();
     const host = ip.trim();
-    tv.connect({ id: type + ':' + host, type, host, name: name.trim() || TYPE_LABEL[type] });
+    const t = projector ? 'samsung' : type;
+    tv.connect({ id: t + ':' + host, type: t, host, name: name.trim() || (projector ? 'Proyektor Samsung' : TYPE_LABEL[t]), ...(projector ? { projector: true } : {}) });
   };
   return (
     <Sheet open={open} onClose={onClose}>
-      <h2>Tambah TV manual</h2>
-      <p className="lead">Pilih jenis TV lalu masukkan alamat IP-nya.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-        {TYPES.map(([id, label]) => (
-          <button key={id} className="btn small" onClick={() => { fx.select(); setType(id); }}
-            style={type === id ? { background: 'color-mix(in srgb, var(--accent) 20%, transparent)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}>
-            <TypeIcon type={id} size={17} /> {label}
-          </button>
-        ))}
-      </div>
+      <h2>{projector ? 'Proyektor Samsung (Freestyle / LS3)' : 'Tambah TV manual'}</h2>
+      <p className="lead">{projector
+        ? 'The Freestyle pakai jaringan seperti TV Samsung. Masukkan alamat IP proyektor (di proyektor: Menu → Settings → General & Privacy → Network → Network Status).'
+        : 'Pilih jenis TV lalu masukkan alamat IP-nya.'}</p>
+      {!projector && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+          {TYPES.map(([id, label]) => (
+            <button key={id} className="btn small" onClick={() => { fx.select(); setType(id); }}
+              style={type === id ? { background: 'color-mix(in srgb, var(--accent) 20%, transparent)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}>
+              <TypeIcon type={id} size={17} /> {label}
+            </button>
+          ))}
+        </div>
+      )}
       <input className="field" inputMode="decimal" placeholder="Alamat IP, mis. 192.168.1.20" value={ip} onChange={e => setIp(e.target.value)} />
-      <input className="field" style={{ marginTop: 10 }} placeholder="Nama (opsional), mis. TV Ruang Tamu" value={name} onChange={e => setName(e.target.value)} />
-      <button className="btn primary block" style={{ marginTop: 16 }} disabled={!valid} onClick={go}><Zap size={18} /> Hubungkan</button>
+      <input className="field" style={{ marginTop: 10 }} placeholder={projector ? 'Nama (opsional), mis. Proyektor Kamar' : 'Nama (opsional), mis. TV Ruang Tamu'} value={name} onChange={e => setName(e.target.value)} />
+      <button className="btn primary block" style={{ marginTop: 16 }} disabled={!valid} onClick={go}>{projector ? <Projector size={18} /> : <Zap size={18} />} Hubungkan</button>
     </Sheet>
   );
 }

@@ -34,4 +34,5 @@ export const FEATURES = [
   { t: 'Gambar kejutan ke TV', d: 'Kirim gambar (preset atau dari galeri) yang muncul seketika di layar TV — buat jahilin (Android TV).' },
   { t: 'Preview TV di atas remote', d: 'Lihat layar TV langsung di atas tombol remote sambil mengontrol.' },
   { t: 'Ngomong lewat TV', d: 'Rekam suaramu atau ketik teks, lalu diputar/diucapkan lewat speaker TV (Android TV).' },
+  { t: 'Mode Proyektor', d: 'Layout khusus proyektor Samsung Freestyle / LS3 + pintasan fokus, keystone, sumber & mode gambar.' },
 ];

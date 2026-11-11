@@ -3,7 +3,7 @@ import { native } from '../lib/native.js';
 import { useStore } from '../store.js';
 import { fx } from '../sfx.js';
 import { tv } from '../tv.js';
-import { Tv, MonitorSmartphone, Radio, Wifi, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Tv, MonitorSmartphone, Radio, Wifi, AlertCircle, CheckCircle2, Projector } from 'lucide-react';
 
 export function Sheet({ open, onClose, children, className = '' }) {
   const [shown, setShown] = useState(open);
@@ -79,8 +79,8 @@ export function Key({ k, children, label, repeat = false, className = '', style,
 
 export const TYPE_ICON = { androidtv: MonitorSmartphone, samsung: Tv, lg: Tv, roku: Wifi, ir: Radio };
 
-export function TypeIcon({ type, size = 22 }) {
-  const I = TYPE_ICON[type] || Tv;
+export function TypeIcon({ type, projector, size = 22 }) {
+  const I = projector ? Projector : (TYPE_ICON[type] || Tv);
   return <I size={size} strokeWidth={2.2} />;
 }
 

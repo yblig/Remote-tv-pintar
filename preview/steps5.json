@@ -1,0 +1,10 @@
+[
+  {"eval": "window.__store.getState().set({onboarded:true})"}, {"wait": 500},
+  {"eval": "[...document.querySelectorAll('.list-item')].find(b=>b.textContent.includes('Proyektor Samsung')).click()"}, {"wait": 500, "shot": "a-add-projector"},
+  {"eval": "const i=document.querySelector('.sheet .field'); const set=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; set.call(i,'192.168.1.50'); i.dispatchEvent(new Event('input',{bubbles:true}))"}, {"wait": 300},
+  {"eval": "[...document.querySelectorAll('.sheet .btn.primary')].pop().click()"}, {"wait": 900, "shot": "b-prompt"},
+  {"wait": 1800, "shot": "c-projector-remote"},
+  {"eval": "[...document.querySelectorAll('.list-item')].find(b=>b.textContent.includes('Fokus')).click()"}, {"wait": 600, "shot": "d-focus-guide"},
+  {"eval": "document.querySelector('.backdrop').click()"}, {"wait": 400},
+  {"eval": "window.__store.getState().set({tab:'apps'})"}, {"wait": 500, "shot": "e-apps"}
+]

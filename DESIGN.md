@@ -70,3 +70,7 @@ suara/getar/kocok/tombol volume.
 
 ## Update: Fitur Jahil (prank, Android TV)
 33 Kirim gambar kejutan ke TV (preload ADB push ke /data/local/tmp + am start VIEW, beberapa fallback) · 34 Preview layar TV di atas remote (screenview singleton bersama) · 35 Ngomong lewat TV: rekam suara (capacitor-voice-recorder → push → am VIEW audio) + teks jadi suara (TTS HP synthesizeToFile → push → play). Native baru: adbShell, adbPush (base64 chunked ≤ maxData), ttsToFile. Jujur: dengar mic TV tidak didukung tanpa root; tampil gambar/audio bergantung pemutar di TV (semua error ditampilkan + bisa disalin).
+
+
+## Update: Mode Proyektor (Samsung Freestyle / LS3)
+The Freestyle = Tizen → pakai driver Samsung yang sudah ada. Device Samsung bisa ditandai `projector:true` (deteksi otomatis dari nama 'Freestyle/LSP', entri 'Proyektor Samsung' di Connect, atau toggle di opsi TV). Tab Remote menampilkan layout Projector.jsx: banner, Sumber/Menu/Beranda, D-pad, volume/media, kartu Kontrol proyektor (Fokus & Keystone, Ukuran layar, Mode gambar) yang membuka menu proyektor (KEY_MENU) + panduan langkah. Keyboard & Aplikasi tetap jalan.

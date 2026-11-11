@@ -11,6 +11,8 @@ let connectingId = 0;
 
 const makers = { androidtv: androidTvDriver, samsung: samsungDriver, lg: lgDriver, roku: rokuDriver, ir: irDriver };
 
+export function tvLabel(t) { return t?.projector ? 'Samsung Freestyle (proyektor)' : (TYPE_LABEL[t?.type] || 'TV'); }
+
 export const TYPE_LABEL = {
   androidtv: 'Android TV / Google TV', samsung: 'Samsung Smart TV', lg: 'LG webOS', roku: 'Roku TV', ir: 'Infra merah',
 };

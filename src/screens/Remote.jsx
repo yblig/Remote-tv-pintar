@@ -41,7 +41,7 @@ function RemotePreview() {
   );
 }
 
-function Dpad() {
+export function Dpad() {
   const [active, setActive] = useState(null);
   const arrow = (k, Icon, style) => (
     <Key k={k} repeat className="dpad-arrow" style={style} label={k}>
