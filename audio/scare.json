@@ -1,0 +1,15 @@
+{
+  "jerit": { "layers": [
+    { "wave": "saw", "freq": 760, "freqEnd": 1500, "duration": 1.15, "vibratoDepth": 0.3, "vibratoRate": 24, "decay": 0.35, "punch": 0.6 },
+    { "wave": "square", "freq": 1180, "freqEnd": 880, "duration": 1.15, "vibratoDepth": 0.25, "vibratoRate": 31, "volume": 0.5 },
+    { "wave": "noise", "freq": 5200, "duration": 1.15, "volume": 0.4, "decay": 0.6 }
+  ], "drive": 1.5, "reverb": [0.5, 0.3], "volume": 0.95 },
+  "dentum": { "preset": "explosion", "pitch": 0.68, "reverb": [0.6, 0.35], "volume": 0.98 },
+  "horor": { "layers": [
+    { "wave": "saw", "freq": 92, "duration": 1.5, "arp": [0, 1, 6], "arpRate": 0.5, "vibratoDepth": 0.02, "vibratoRate": 5, "decay": 0.4, "volume": 0.95 },
+    { "wave": "saw", "freq": 1350, "freqEnd": 2050, "duration": 0.55, "delay": 0.95, "vibratoDepth": 0.3, "vibratoRate": 30, "punch": 0.7, "volume": 0.6 }
+  ], "reverb": [0.6, 0.35], "drive": 1.3, "volume": 0.92 },
+  "tawa": { "layers": [
+    { "wave": "pulse", "duty": 0.3, "freq": 300, "duration": 1.3, "arp": [0, 5, 0, 5, 0, 5, 0, 5], "arpRate": 0.16, "vibratoDepth": 0.1, "vibratoRate": 9, "decay": 0.3, "volume": 0.9 }
+  ], "lowpass": 2600, "reverb": [0.5, 0.3], "drive": 1.2, "volume": 0.85 }
+}

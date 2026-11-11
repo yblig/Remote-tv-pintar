@@ -10,6 +10,8 @@ import { bridge } from '../bridge.js';
 import { Sheet, Switch } from '../components/ui.jsx';
 import { APPS } from './Apps.jsx';
 import { FEATURES } from '../features.js';
+import { SCARES, svgToJpeg } from '../scare.js';
+import { prankSupported, prepareImage, showImage, hideImage, playSound, speak, SCARE_SOUNDS } from '../prank.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const MACRO_ICONS = { film: Film, 'volume-x': VolumeX, 'volume-1': Volume1, zap: Zap };
@@ -17,17 +19,41 @@ const KEY_NAMES = {
   power: 'Power', home: 'Beranda', back: 'Kembali', ok: 'OK', up: '↑', down: '↓', left: '←', right: '→', volup: 'Vol +', voldown: 'Vol −',
   mute: 'Senyap', chup: 'CH +', chdown: 'CH −', input: 'Input', playpause: 'Putar/Jeda', menu: 'Menu',
 };
+const soundName = id => SCARE_SOUNDS.find(s => s.id === id)?.name || id;
+
+function stepLabel(s) {
+  if (s.key) return KEY_NAMES[s.key] || s.key;
+  if (s.wait) return 'Tunggu ' + s.wait / 1000 + ' dtk';
+  if (s.app) return '▶ ' + (APPS[s.app]?.name || s.app);
+  if (s.scare) return '😱 Kejutan' + (s.sound && s.sound !== 'none' ? ' + ' + soundName(s.sound) : '');
+  if (s.sound) return '🔊 ' + soundName(s.sound);
+  if (s.speak != null) return '🗣️ "' + String(s.speak).slice(0, 14) + '"';
+  if (s.hideScare) return '🙈 Sembunyikan';
+  return '?';
+}
 
 export async function runMacro(m) {
   const d = tv.driver;
   if (!d) return;
   fx.confirm();
   useStore.getState().showToast('Menjalankan "' + m.name + '"');
+  const canPrank = prankSupported();
   for (const s of m.steps) {
     if (tv.driver !== d) return;
     if (s.wait) await sleep(s.wait);
     else if (s.key) { await tv.press(s.key, { silent: true }); await sleep(350); }
     else if (s.app && d.launch) { await d.launch(s.app).catch(() => {}); await sleep(500); }
+    else if (s.scare) {
+      if (!canPrank) { useStore.getState().showToast('Langkah kejutan butuh Android TV', 'error'); continue; }
+      const svg = SCARES.find(x => x.id === (s.img || 'grin'))?.svg || SCARES[0].svg;
+      const p = await prepareImage(await svgToJpeg(svg), s.sound || 'none');
+      if (p.ok) await showImage(s.sound && s.sound !== 'none');
+      else { useStore.getState().showToast(p.needSpace ? 'Penyimpanan TV penuh' : 'Gagal menampilkan', 'error'); }
+      await sleep(400);
+    }
+    else if (s.sound) { if (canPrank) await playSound(s.sound); await sleep(300); }
+    else if (s.speak != null) { if (canPrank) await speak(String(s.speak)); await sleep(400); }
+    else if (s.hideScare) { if (canPrank) await hideImage(); await sleep(200); }
   }
 }
 
@@ -95,7 +121,7 @@ function Macros({ onDone }) {
           {edit.steps.length === 0 && <span className="subtitle" style={{ fontSize: 13, margin: 0 }}>Tambah tombol dari daftar di bawah.</span>}
           {edit.steps.map((s, i) => (
             <span key={i} className="chip" style={{ background: 'color-mix(in srgb, var(--accent) 16%, var(--surface2))' }}>
-              {i + 1}. {s.key ? KEY_NAMES[s.key] : s.app ? APPS[s.app]?.name : 'Tunggu ' + s.wait / 1000 + ' dtk'}
+              {i + 1}. {stepLabel(s)}
               <button onClick={() => { fx.back(); setEdit({ ...edit, steps: edit.steps.filter((_, j) => j !== i) }); }} style={{ display: 'grid', placeItems: 'center' }}><X size={13} /></button>
             </span>
           ))}
@@ -106,6 +132,21 @@ function Macros({ onDone }) {
           <button className="chip" onClick={() => add({ wait: 1000 })}>⏱ Tunggu 1 dtk</button>
           {(d?.apps || []).filter(a => APPS[a]).map(a => <button key={a} className="chip" onClick={() => add({ app: a })}>▶ {APPS[a].name}</button>)}
         </div>
+        {prankSupported() && (
+          <>
+            <div className="section-label">Jahil (gambar + suara)</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {SCARES.map(sc => (
+                <button key={sc.id} className="chip" onClick={() => add({ scare: true, img: sc.id, sound: 'jerit' })}>😱 {sc.name} + jerit</button>
+              ))}
+              {SCARE_SOUNDS.filter(s => s.id !== 'none').map(s => (
+                <button key={s.id} className="chip" onClick={() => add({ sound: s.id })}>{s.emoji} {s.name}</button>
+              ))}
+              <button className="chip" onClick={() => { const t = prompt('Teks untuk diucapkan TV:'); if (t) add({ speak: t }); }}>🗣️ Ucapkan…</button>
+              <button className="chip" onClick={() => add({ hideScare: true })}>🙈 Sembunyikan</button>
+            </div>
+          </>
+        )}
         <div className="row" style={{ gap: 10, marginTop: 20 }}>
           <button className="btn grow" onClick={() => { fx.back(); setEdit(null); }}>Batal</button>
           <button className="btn primary grow" onClick={save}><Check size={18} /> Simpan</button>

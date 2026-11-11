@@ -1,0 +1,12 @@
+[
+  {"eval": "window.__store.getState().set({onboarded:true})"}, {"wait": 400},
+  {"eval": "document.querySelector('.card .btn.primary').click()"}, {"wait": 3300},
+  {"eval": "document.querySelector('.list-item.pop-in').click()"}, {"wait": 2000},
+  {"eval": "window.__store.getState().pairing.submit('A1B2C3')"}, {"wait": 1200},
+  {"eval": "window.__store.getState().set({tab:'screen'})"}, {"wait": 500},
+  {"eval": "document.querySelector('.scroll').scrollTo(0, 360)"}, {"wait": 400, "shot": "a-sound-picker"},
+  {"eval": "window.__store.getState().set({tab:'more'})"}, {"wait": 500},
+  {"eval": "[...document.querySelectorAll('.list-item')].find(b=>b.textContent.includes('Makro')).click()"}, {"wait": 600, "shot": "b-macros"},
+  {"eval": "[...document.querySelectorAll('.sheet .btn.primary')].find(b=>b.textContent.includes('Buat makro')).click()"}, {"wait": 500},
+  {"eval": "document.querySelector('.sheet').scrollTo(0, 500)"}, {"wait": 400, "shot": "c-macro-editor"}
+]

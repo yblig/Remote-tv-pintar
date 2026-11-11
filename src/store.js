@@ -8,6 +8,7 @@ const DEFAULT_MACROS = [
   { id: 'm1', name: 'Mode Nonton', icon: 'film', steps: [{ key: 'home' }, { wait: 1200 }, { app: 'youtube' }] },
   { id: 'm2', name: 'Senyap Cepat', icon: 'volume-x', steps: [{ key: 'mute' }] },
   { id: 'm3', name: 'Volume Pelan', icon: 'volume-1', steps: Array.from({ length: 5 }, () => ({ key: 'voldown' })) },
+  { id: 'm4', name: 'Jumpscare + Jerit', icon: 'zap', steps: [{ scare: true, img: 'grin', sound: 'jerit' }, { wait: 2500 }, { hideScare: true }] },
 ];
 
 const defaults = {

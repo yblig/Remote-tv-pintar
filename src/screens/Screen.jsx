@@ -12,7 +12,9 @@ import { native } from '../lib/native.js';
 import { Key } from '../components/ui.jsx';
 import { screenview } from '../screenview.js';
 import { SCARES, svgToJpeg, fileToJpeg } from '../scare.js';
-import { prankSupported, prepareImage, showImage, hideImage, playAudio, speak } from '../prank.js';
+import { prankSupported, prepareImage, showImage, hideImage, playAudio, speak, SCARE_SOUNDS, soundUrl } from '../prank.js';
+
+let previewAudio = null;
 
 const RATES = [[2000, '2 dtk'], [5000, '5 dtk'], [10000, '10 dtk']];
 const timeAgo = (t, now) => { const s = Math.max(0, Math.round((now - t) / 1000)); return s < 2 ? 'baru saja' : s + ' dtk lalu'; };
@@ -114,14 +116,19 @@ function Watch() {
 
 function Prank() {
   const [pick, setPick] = useState(SCARES[0].id);
+  const [sound, setSound] = useState('jerit');
   const [customImg, setCustomImg] = useState(null); // {thumb, jpeg}
-  const [prepared, setPrepared] = useState(null);    // id currently pushed to TV
+  const [prepared, setPrepared] = useState(null);    // "imgKey|soundId" currently pushed to TV
   const [busy, setBusy] = useState('');
   const [log, setLog] = useState('');
   const [text, setText] = useState('Hai, aku lagi ngeliatin kamu loh 👀');
   const [rec, setRec] = useState(false);
   const file = useRef(null);
   const recStart = useRef(0);
+  const preview = (id) => {
+    if (id === 'none') return;
+    try { previewAudio?.pause(); previewAudio = new Audio(soundUrl(id)); previewAudio.play().catch(() => {}); } catch { /* */ }
+  };
 
   if (!prankSupported()) {
     return (
@@ -134,13 +141,14 @@ function Prank() {
   }
 
   const curJpeg = async () => customImg ? customImg.jpeg : svgToJpeg(SCARES.find(s => s.id === pick).svg);
-  const curKey = customImg ? 'custom' : pick;
+  const curKey = (customImg ? 'custom' : pick) + '|' + sound;
+  const hasSound = sound !== 'none';
 
   const prepare = async () => {
     fx.tap(); setBusy('prepare'); setLog('');
     try {
-      const r = await prepareImage(await curJpeg());
-      if (r.ok) { setPrepared(curKey); fx.confirm(); useStore.getState().showToast('Gambar siap di TV — tinggal KAGETKAN'); }
+      const r = await prepareImage(await curJpeg(), sound);
+      if (r.ok) { setPrepared(curKey); fx.confirm(); useStore.getState().showToast(hasSound ? 'Gambar + suara siap — tinggal KAGETKAN' : 'Gambar siap di TV — tinggal KAGETKAN'); }
       else { fx.error(); setLog(r.log); useStore.getState().showToast(r.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal menyiapkan — lihat detail', 'error'); }
     } catch (e) { fx.error(); setLog(String(e?.message || e)); useStore.getState().showToast('Gagal menyiapkan gambar', 'error'); }
     setBusy('');
@@ -148,8 +156,8 @@ function Prank() {
   const scare = async () => {
     fx.press('power'); setBusy('show');
     try {
-      if (prepared !== curKey) { const p = await prepareImage(await curJpeg()); if (!p.ok) { setLog(p.log); fx.error(); useStore.getState().showToast(p.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal — lihat detail', 'error'); setBusy(''); return; } setPrepared(curKey); }
-      const r = await showImage();
+      if (prepared !== curKey) { const p = await prepareImage(await curJpeg(), sound); if (!p.ok) { setLog(p.log); fx.error(); useStore.getState().showToast(p.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal — lihat detail', 'error'); setBusy(''); return; } setPrepared(curKey); }
+      const r = await showImage(hasSound);
       if (r.ok) { setLog(''); fx.notify(); useStore.getState().showToast('KAGET! 👻'); } else { setLog(r.log); fx.error(); useStore.getState().showToast(r.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal menampilkan — lihat detail', 'error'); }
     } catch (e) { fx.error(); setLog(String(e?.message || e)); }
     setBusy('');
@@ -220,7 +228,16 @@ function Prank() {
       </div>
       <input ref={file} type="file" accept="image/*" hidden onChange={onFile} />
 
-      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+      <div className="section-label" style={{ marginTop: 16 }}><Volume2 size={13} /> Suara kejutan (bareng gambar)</div>
+      <div className="chips">
+        {SCARE_SOUNDS.map(s => (
+          <button key={s.id} className={'chip' + (sound === s.id ? ' chip-on' : '')} onClick={() => { fx.select(); setSound(s.id); setPrepared(null); preview(s.id); }}>
+            {s.emoji} {s.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="row" style={{ gap: 8, marginTop: 14 }}>
         <button className="btn grow" onClick={prepare} disabled={!!busy}>
           {busy === 'prepare' ? <span className="spinner" /> : prepared === curKey ? <ShieldCheck size={18} color="var(--success)" /> : <Upload size={18} />} {prepared === curKey ? 'Siap di TV' : 'Siapkan'}
         </button>
@@ -229,7 +246,7 @@ function Prank() {
         </button>
       </div>
       <button className="chip" style={{ marginTop: 8 }} onClick={async () => { fx.back(); await hideImage(); screenview.start(); }}><EyeOff size={15} /> Sembunyikan di TV</button>
-      <p className="subtitle" style={{ fontSize: 11.5, margin: '8px 2px 0', lineHeight: 1.5 }}>Tip: tekan <b>Siapkan</b> dulu supaya gambar muncul seketika tanpa loading saat <b>KAGETKAN</b>.</p>
+      <p className="subtitle" style={{ fontSize: 11.5, margin: '8px 2px 0', lineHeight: 1.5 }}>Tip: tekan <b>Siapkan</b> dulu — gambar & suara dimuat ke TV supaya meledak <b>barengan</b> tanpa loading saat <b>KAGETKAN</b>.</p>
 
       <div className="section-label"><Volume2 size={13} /> Ngomong lewat TV</div>
       <div className="row" style={{ gap: 8 }}>

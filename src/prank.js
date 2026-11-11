@@ -6,6 +6,7 @@ import { bridge } from './bridge.js';
 import { useStore } from './store.js';
 
 const IMG = '/data/local/tmp/rtp_scare.jpg';
+const SND = '/data/local/tmp/rtp_scare_snd.wav';
 const AUD = '/data/local/tmp/rtp_voice';
 const ACT = 'com.yblig.rtpcast/.CastActivity';
 const SVC = 'com.yblig.rtpcast/.CastService';
@@ -14,6 +15,24 @@ const host = () => useStore.getState().activeTv()?.host;
 const stripB64 = d => d.includes(',') ? d.slice(d.indexOf(',') + 1) : d;
 const failed = out => /error|unable to resolve|does not exist|not found|no activity|exception|denied/i.test(out || '');
 const esc = t => "'" + String(t).replace(/'/g, "'\\''").replace(/\n/g, ' ') + "'";
+
+// Jumpscare sounds (bundled, generated offline). Played on the TV together with the image.
+export const SCARE_SOUNDS = [
+  { id: 'none', name: 'Tanpa suara', emoji: '🔇' },
+  { id: 'jerit', name: 'Jeritan', emoji: '😱' },
+  { id: 'dentum', name: 'Dentuman', emoji: '💥' },
+  { id: 'horor', name: 'Horor', emoji: '👻' },
+  { id: 'tawa', name: 'Tawa seram', emoji: '🤡' },
+];
+export const soundUrl = id => `audio/scare/${id}.wav`;
+
+async function urlToBase64(url) {
+  const buf = await (await fetch(url)).arrayBuffer();
+  let bin = '';
+  const b = new Uint8Array(buf);
+  for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+  return btoa(bin);
+}
 
 export function prankSupported() {
   return useStore.getState().activeTv()?.type === 'androidtv';
@@ -34,24 +53,40 @@ function spaceMsg(h) {
   return (h.log || 'Gagal memasang komponen di TV.');
 }
 
-// Pushes the image to the TV ahead of time so it appears instantly on KAGETKAN.
-export async function prepareImage(dataUrl) {
+// Preloads the image AND the scare sound onto the TV so both fire instantly, together,
+// on KAGETKAN. soundId 'none' (or omitted) prepares no sound.
+export async function prepareImage(dataUrl, soundId = 'none') {
   const h = await ensureHelper();
   if (!h.ok) return { ok: false, needSpace: h.reason === 'NO_SPACE', log: spaceMsg(h) };
   await bridge.call('adbPush', { host: host(), path: IMG, data: stripB64(dataUrl) });
-  return { ok: true };
+  if (soundId && soundId !== 'none') {
+    await bridge.call('adbPush', { host: host(), path: SND, data: await urlToBase64(soundUrl(soundId)) });
+  }
+  return { ok: true, sound: soundId && soundId !== 'none' };
 }
 
-export async function showImage() {
+// Shows the preloaded image fullscreen; if hasSound, the companion app plays the
+// preloaded sound at the same moment.
+export async function showImage(hasSound = false) {
   const h = await ensureHelper();
   if (!h.ok) return { ok: false, needSpace: h.reason === 'NO_SPACE', log: spaceMsg(h) };
-  const out = await shell(`am start -n ${ACT} --es img ${IMG} -f 0x14000000`);
+  const sound = hasSound ? ` --es sound ${SND}` : '';
+  const out = await shell(`am start -n ${ACT} --es img ${IMG}${sound} -f 0x14000000`);
   return { ok: !failed(out), log: out.trim() };
 }
 
 export async function hideImage() {
   try { await shell(`am start -n ${ACT} --es action close`); } catch { /* ignore */ }
   try { await shell('input keyevent KEYCODE_HOME'); } catch { /* ignore */ }
+}
+
+// Plays a bundled scare sound on the TV on its own (no image) — used by macro steps.
+export async function playSound(soundId) {
+  if (!soundId || soundId === 'none') return { ok: true };
+  const h = await ensureHelper();
+  if (!h.ok) return { ok: false, needSpace: h.reason === 'NO_SPACE', log: spaceMsg(h) };
+  await bridge.call('adbPush', { host: host(), path: `${AUD}.wav`, data: await urlToBase64(soundUrl(soundId)) });
+  return startService(`--es audio ${AUD}.wav`);
 }
 
 async function startService(args) {
