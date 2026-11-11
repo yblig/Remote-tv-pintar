@@ -138,17 +138,19 @@ function Prank() {
 
   const prepare = async () => {
     fx.tap(); setBusy('prepare'); setLog('');
-    try { await prepareImage(await curJpeg()); setPrepared(curKey); fx.confirm(); useStore.getState().showToast('Gambar siap di TV — tinggal KAGETKAN'); }
-    catch (e) { fx.error(); setLog(String(e?.message || e)); useStore.getState().showToast('Gagal menyiapkan gambar', 'error'); }
+    try {
+      const r = await prepareImage(await curJpeg());
+      if (r.ok) { setPrepared(curKey); fx.confirm(); useStore.getState().showToast('Gambar siap di TV — tinggal KAGETKAN'); }
+      else { fx.error(); setLog(r.log); useStore.getState().showToast(r.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal menyiapkan — lihat detail', 'error'); }
+    } catch (e) { fx.error(); setLog(String(e?.message || e)); useStore.getState().showToast('Gagal menyiapkan gambar', 'error'); }
     setBusy('');
   };
   const scare = async () => {
     fx.press('power'); setBusy('show');
     try {
-      let key = prepared;
-      if (prepared !== curKey) { await prepareImage(await curJpeg()); key = curKey; setPrepared(curKey); }
+      if (prepared !== curKey) { const p = await prepareImage(await curJpeg()); if (!p.ok) { setLog(p.log); fx.error(); useStore.getState().showToast(p.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal — lihat detail', 'error'); setBusy(''); return; } setPrepared(curKey); }
       const r = await showImage();
-      if (r.ok) { setLog(''); fx.notify(); useStore.getState().showToast('KAGET! 👻'); } else { setLog(r.log); fx.error(); useStore.getState().showToast('Gagal menampilkan — lihat detail', 'error'); }
+      if (r.ok) { setLog(''); fx.notify(); useStore.getState().showToast('KAGET! 👻'); } else { setLog(r.log); fx.error(); useStore.getState().showToast(r.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'Gagal menampilkan — lihat detail', 'error'); }
     } catch (e) { fx.error(); setLog(String(e?.message || e)); }
     setBusy('');
   };
@@ -162,7 +164,7 @@ function Prank() {
   const sayText = async () => {
     if (!text.trim()) { fx.error(); return; }
     fx.tap(); setBusy('tts');
-    try { const r = await speak(text.trim()); if (r.ok) { fx.confirm(); useStore.getState().showToast('TV sedang bicara 🔊'); } else { fx.error(); setLog(r.log); useStore.getState().showToast('TV tak bisa memutar suara — lihat detail', 'error'); } }
+    try { const r = await speak(text.trim()); if (r.ok) { fx.confirm(); useStore.getState().showToast('TV sedang bicara 🔊'); } else { fx.error(); setLog(r.log); useStore.getState().showToast(r.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'TV tak bisa memutar suara — lihat detail', 'error'); } }
     catch (e) { fx.error(); setLog(String(e?.message || e)); useStore.getState().showToast('Gagal: ' + String(e?.message || e).slice(0, 40), 'error'); }
     setBusy('');
   };
@@ -189,7 +191,7 @@ function Prank() {
       const ext = (r.value?.mimeType || '').includes('mpeg') ? 'mp3' : (r.value?.mimeType || '').includes('wav') ? 'wav' : 'm4a';
       if (!b64) throw new Error('Rekaman kosong');
       const res = await playAudio(b64, ext);
-      if (res.ok) { fx.confirm(); useStore.getState().showToast('Suaramu diputar di TV 🔊'); } else { fx.error(); setLog(res.log); useStore.getState().showToast('TV tak bisa memutar audio — lihat detail', 'error'); }
+      if (res.ok) { fx.confirm(); useStore.getState().showToast('Suaramu diputar di TV 🔊'); } else { fx.error(); setLog(res.log); useStore.getState().showToast(res.needSpace ? 'Penyimpanan TV penuh — lihat detail' : 'TV tak bisa memutar audio — lihat detail', 'error'); }
     } catch (e) { fx.error(); setLog(String(e?.message || e)); useStore.getState().showToast('Gagal memutar rekaman', 'error'); }
     setBusy('');
   };

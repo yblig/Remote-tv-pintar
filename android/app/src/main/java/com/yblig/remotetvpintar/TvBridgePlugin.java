@@ -689,16 +689,36 @@ public class TvBridgePlugin extends Plugin {
                 String tmp = "/data/local/tmp/rtpcast.apk";
                 pushBase64(host, tmp, android.util.Base64.encodeToString(apk, android.util.Base64.NO_WRAP));
                 String out = "";
-                for (String cmd : new String[]{"pm install -r -t -g " + tmp, "pm install -r -t " + tmp, "pm install -r " + tmp}) {
+                boolean noSpace = false;
+                String[] cmds = {
+                        "pm install -r -t -g " + tmp,
+                        "pm install -r -t -g --install-location 2 " + tmp,
+                        "pm install -r -t -s " + tmp,
+                        "pm install -r -t " + tmp,
+                        "pm install -r " + tmp,
+                };
+                for (String cmd : cmds) {
                     out = new String(adbRun(host, cmd + " 2>&1"), StandardCharsets.UTF_8).trim();
-                    log.append(cmd.replace(tmp, "apk")).append(" → ").append(out).append("; ");
+                    log.append(cmd.replace(tmp, "apk").replace("pm install ", "")).append(" → ").append(out.replace('\n', ' ').replaceAll("\\s+at .*", "").trim()).append("; ");
                     if (out.contains("Success")) {
                         JSObject r = new JSObject(); r.put("installed", true); r.put("log", log.toString()); call.resolve(r); return;
                     }
+                    if (out.contains("not enough space") || out.contains("INSUFFICIENT_STORAGE")) noSpace = true;
                 }
-                throw new Exception("INSTALL_FAILED " + log);
+                String df = "";
+                try { df = new String(adbRun(host, "df -h /data 2>/dev/null | tail -1"), StandardCharsets.UTF_8).trim(); } catch (Exception ignored) {}
+                JSObject r = new JSObject();
+                r.put("installed", false);
+                r.put("reason", noSpace ? "NO_SPACE" : "INSTALL_FAILED");
+                r.put("free", df);
+                r.put("log", log.toString());
+                call.resolve(r); // resolve (not reject) so the UI can fall back / explain clearly
             } catch (Exception e) {
-                call.reject(err(e) + " | " + log);
+                JSObject r = new JSObject();
+                r.put("installed", false);
+                r.put("reason", "ERROR");
+                r.put("log", err(e) + " | " + log);
+                call.resolve(r);
             }
         });
     }

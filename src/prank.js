@@ -21,21 +21,30 @@ export function prankSupported() {
 
 async function shell(cmd) { return (await bridge.call('adbShell', { host: host(), cmd })).out || ''; }
 
-let ensured = false;
+let helper = { ok: false, reason: null, log: '', free: '' };
 async function ensureHelper() {
-  if (ensured) return;
-  await bridge.call('castEnsure', { host: host() }); // installs the companion app once
-  ensured = true;
+  if (helper.ok) return helper;
+  const r = await bridge.call('castEnsure', { host: host() }); // installs the companion app once
+  helper = { ok: !!r.installed, reason: r.reason, log: r.log || '', free: r.free || '' };
+  return helper;
+}
+
+function spaceMsg(h) {
+  if (h.reason === 'NO_SPACE') return 'Penyimpanan TV penuh — kosongkan sedikit ruang di TV (Setelan → Aplikasi → hapus aplikasi tak terpakai atau Hapus cache), lalu coba lagi.' + (h.free ? '\nSisa /data: ' + h.free : '');
+  return (h.log || 'Gagal memasang komponen di TV.');
 }
 
 // Pushes the image to the TV ahead of time so it appears instantly on KAGETKAN.
 export async function prepareImage(dataUrl) {
-  await ensureHelper();
+  const h = await ensureHelper();
+  if (!h.ok) return { ok: false, needSpace: h.reason === 'NO_SPACE', log: spaceMsg(h) };
   await bridge.call('adbPush', { host: host(), path: IMG, data: stripB64(dataUrl) });
+  return { ok: true };
 }
 
 export async function showImage() {
-  await ensureHelper();
+  const h = await ensureHelper();
+  if (!h.ok) return { ok: false, needSpace: h.reason === 'NO_SPACE', log: spaceMsg(h) };
   const out = await shell(`am start -n ${ACT} --es img ${IMG} -f 0x14000000`);
   return { ok: !failed(out), log: out.trim() };
 }
@@ -46,21 +55,38 @@ export async function hideImage() {
 }
 
 async function startService(args) {
-  await ensureHelper();
   let out = await shell(`am start-foreground-service -n ${SVC} ${args}`);
   if (failed(out)) out += '\n' + await shell(`am startservice -n ${SVC} ${args}`);
   return { ok: !failed(out), log: out.trim() };
 }
 
+// Plays a WAV directly through the TV's ALSA output with no app install — a fallback
+// for when the TV storage is full. Not all TVs ship tinyplay.
+async function tinyplayWav(b64) {
+  const path = `${AUD}.wav`;
+  await bridge.call('adbPush', { host: host(), path, data: stripB64(b64) });
+  const out = await shell(`tinyplay ${path} 2>&1; echo rc=$?`);
+  const ok = !/not found|no such|error|rc=[1-9]/i.test(out);
+  return { ok, log: 'tinyplay → ' + out.trim() };
+}
+
 // Record-your-voice: push the clip, then the companion app plays it on the TV.
 export async function playAudio(base64, ext = 'm4a') {
-  await ensureHelper();
+  const h = await ensureHelper();
+  if (!h.ok) return { ok: false, needSpace: h.reason === 'NO_SPACE', log: 'Butuh komponen di TV untuk memutar rekaman. ' + spaceMsg(h) };
   await bridge.call('adbPush', { host: host(), path: `${AUD}.${ext}`, data: stripB64(base64) });
   return startService(`--es audio ${AUD}.${ext}`);
 }
 
-// Type-to-speak: the TV's own text-to-speech says it (no screen takeover).
+// Type-to-speak. Prefer the companion app (TV's own TTS); if it can't be installed
+// (e.g. storage full), fall back to synthesising on the phone and playing via tinyplay.
 export async function speak(text, lang = 'id') {
   if (!text.trim()) return { ok: false, log: 'empty' };
-  return startService(`--es say ${esc(text)} --es lang ${lang}`);
+  const h = await ensureHelper();
+  if (h.ok) return startService(`--es say ${esc(text)} --es lang ${lang}`);
+  const t = await bridge.call('ttsToFile', { text, lang });
+  if (t.empty || !t.data) return { ok: true, log: 'sim' };
+  const r = await tinyplayWav(t.data);
+  if (r.ok) return r;
+  return { ok: false, needSpace: h.reason === 'NO_SPACE', log: spaceMsg(h) + '\n(Jalur tanpa-pasang juga gagal: ' + r.log + ')' };
 }
