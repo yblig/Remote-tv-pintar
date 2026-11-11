@@ -1,0 +1,10 @@
+[
+  {"eval": "window.__store.getState().set({onboarded:true})"}, {"wait": 600},
+  {"eval": "document.querySelector('.card .btn.primary').click()"}, {"wait": 3400},
+  {"eval": "document.querySelectorAll('.list-item.pop-in')[1].click()"}, {"wait": 1200, "shot": "a-samsung-prompt"},
+  {"wait": 1500},
+  {"eval": "window.__store.getState().set({tab:'screen'})"}, {"wait": 500, "shot": "b-screen-samsung"},
+  {"eval": "window.__store.getState().set({tab:'more', theme:'light', accent:'#ff7a59'})"}, {"wait": 500},
+  {"eval": "window.__store.getState().set({tab:'remote'})"}, {"wait": 500, "shot": "c-light-remote"},
+  {"eval": "[...document.querySelectorAll('.key')].find(b=>b.textContent.includes('123')).dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))"}, {"wait": 700, "shot": "d-numpad"}
+]

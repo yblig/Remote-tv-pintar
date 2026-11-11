@@ -70,6 +70,9 @@ public class TvBridgePlugin extends Plugin {
     private final Map<String, WebSocket> sockets = new ConcurrentHashMap<>();
     private OkHttpClient http;
     private AtvCore atv;
+    private final AdbCore adb = new AdbCore();
+    private final ExecutorService adbPool = Executors.newSingleThreadExecutor();
+    private int shotN = 0;
 
     @Override
     public void load() {
@@ -504,6 +507,121 @@ public class TvBridgePlugin extends Plugin {
         });
     }
 
+    // ------------------------------------------------------------------ TV screen view (ADB) & cast
+
+    private void adbEnsure(String host) throws Exception {
+        if (adb.isConnected(host)) return;
+        adb.connect(host, 5555, atv.key(), atv.pub(), () -> notifyListeners("adbPrompt", new JSObject()));
+    }
+
+    private JSObject saveShot(byte[] data, String ext) throws Exception {
+        java.io.File dir = new java.io.File(getContext().getCacheDir(), "tvshots");
+        if (!dir.exists()) dir.mkdirs();
+        shotN = (shotN + 1) % 4;
+        java.io.File f = new java.io.File(dir, "shot" + shotN + "." + ext);
+        try (java.io.FileOutputStream o = new java.io.FileOutputStream(f)) { o.write(data); }
+        JSObject r = new JSObject();
+        r.put("path", f.getAbsolutePath());
+        r.put("bytes", data.length);
+        r.put("time", System.currentTimeMillis());
+        return r;
+    }
+
+    @PluginMethod
+    public void adbConnect(final PluginCall call) {
+        final String host = call.getString("host");
+        adbPool.execute(() -> {
+            try { adbEnsure(host); call.resolve(); } catch (Exception e) { adb.close(); call.reject(err(e)); }
+        });
+    }
+
+    @PluginMethod
+    public void adbScreenshot(final PluginCall call) {
+        final String host = call.getString("host");
+        adbPool.execute(() -> {
+            try {
+                byte[] png = null;
+                for (int attempt = 0; attempt < 2; attempt++) {
+                    try {
+                        adbEnsure(host);
+                        png = adb.exec("screencap -p");
+                        break;
+                    } catch (java.io.IOException io) {
+                        adb.close();
+                        if (attempt == 1) throw io;
+                    }
+                }
+                if (png == null || png.length < 8 || (png[1] != 'P' || png[2] != 'N' || png[3] != 'G')) {
+                    String msg = png == null ? "" : new String(png, 0, Math.min(png.length, 120), StandardCharsets.UTF_8);
+                    throw new Exception("NO_IMAGE " + msg);
+                }
+                call.resolve(saveShot(png, "png"));
+            } catch (Exception e) {
+                call.reject(err(e));
+            }
+        });
+    }
+
+    @PluginMethod
+    public void adbClose(PluginCall call) {
+        adbPool.execute(adb::close);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void fetchToFile(final PluginCall call) {
+        final String url = call.getString("url");
+        pool.execute(() -> {
+            HttpURLConnection c = null;
+            try {
+                c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(4000);
+                c.setReadTimeout(8000);
+                ByteArrayOutputStream o = new ByteArrayOutputStream();
+                try (InputStream in = c.getInputStream()) {
+                    byte[] b = new byte[16384];
+                    int n;
+                    while ((n = in.read(b)) > 0) o.write(b, 0, n);
+                }
+                call.resolve(saveShot(o.toByteArray(), "jpg"));
+            } catch (Exception e) {
+                call.reject(err(e));
+            } finally {
+                if (c != null) c.disconnect();
+            }
+        });
+    }
+
+    @PluginMethod
+    public void castSettings(PluginCall call) {
+        String[] actions = {"android.settings.CAST_SETTINGS", "android.settings.WIFI_DISPLAY_SETTINGS"};
+        String[] packages = {"com.samsung.android.smartmirroring", "com.miui.screenshare", "com.android.settings"};
+        for (String a : actions) {
+            try {
+                Intent i = new Intent(a);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getActivity().startActivity(i);
+                JSObject r = new JSObject();
+                r.put("opened", a);
+                call.resolve(r);
+                return;
+            } catch (Exception ignored) {}
+        }
+        for (String p : packages) {
+            try {
+                Intent i = getContext().getPackageManager().getLaunchIntentForPackage(p);
+                if (i == null) continue;
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getActivity().startActivity(i);
+                JSObject r = new JSObject();
+                r.put("opened", p);
+                call.resolve(r);
+                return;
+            } catch (Exception ignored) {}
+        }
+        call.reject("NO_CAST");
+    }
+
     // ------------------------------------------------------------------ Wake-on-LAN
 
     @PluginMethod
@@ -578,6 +696,7 @@ public class TvBridgePlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         try { atv.disconnect(); } catch (Exception ignored) {}
+        adb.close();
         for (WebSocket w : sockets.values()) w.cancel();
         sockets.clear();
         super.handleOnDestroy();

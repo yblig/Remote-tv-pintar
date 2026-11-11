@@ -39,12 +39,13 @@ Konten: 24 Peluncur aplikasi (YouTube, Netflix, Vidio, Disney+, Prime Video, Spo
 25 Cari YouTube langsung di TV · 26 Kirim link ke TV
 Otomasi: 27 Makro (urutan tombol) · 28 Timer tidur (TV mati otomatis) · 29 Channel favorit
 Gaya: 30 Tema gelap/terang + 6 warna aksen
+Tambahan (permintaan user): 31 Lihat layar TV dari HP (ADB :5555 screencap di Android TV, ssap executeOneShot di LG) · 32 Bagikan layar HP ke TV (buka Cast/Smart View sistem)
 (+ pengaturan suara/getar, tutorial pertama kali.)
 
 ## Layar
 Onboarding (3 slide, sekali) → **Hubungkan TV** (gerbang: daftar TV tersimpan, hasil pindai,
 tambah manual, IR) → sheet pairing per protokol → **Utama** dengan tab bar:
-Remote · Keyboard · Aplikasi · Lainnya (Makro, Timer tidur, Channel favorit, Wake-on-LAN,
+Remote · Keyboard · Aplikasi · Layar · Lainnya (Makro, Timer tidur, Channel favorit, Wake-on-LAN,
 Pengaturan, Ganti TV). Header: nama TV + titik status + tombol Power.
 Back Android: tutup sheet → tab Remote → keluar (tekan 2x).
 

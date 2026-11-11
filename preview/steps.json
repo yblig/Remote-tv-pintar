@@ -1,0 +1,17 @@
+[
+  {"wait": 1200, "shot": "01-onboarding"},
+  {"eval": "document.querySelector('.btn.primary').click()"}, {"wait": 500},
+  {"eval": "document.querySelector('.btn.primary').click()"}, {"wait": 700, "shot": "02-onboarding3"},
+  {"eval": "document.querySelector('.btn.primary').click()"}, {"wait": 700, "shot": "03-connect"},
+  {"eval": "document.querySelector('.card .btn.primary').click()"}, {"wait": 1200, "shot": "04-scanning"},
+  {"wait": 2200, "shot": "05-found"},
+  {"eval": "document.querySelector('.list-item.pop-in').click()"}, {"wait": 2200, "shot": "06-paircode"},
+  {"eval": "window.__store.getState().pairing.submit('A1B2C3')"}, {"wait": 2200, "shot": "07-remote"},
+  {"eval": "window.__store.getState().set({remoteMode:'swipe'})"}, {"wait": 500, "shot": "08-touchpad"},
+  {"eval": "window.__store.getState().set({remoteMode:'dpad', tab:'keyboard'})"}, {"wait": 600, "shot": "09-keyboard"},
+  {"eval": "window.__store.getState().set({tab:'apps'})"}, {"wait": 800, "shot": "10-apps"},
+  {"eval": "window.__store.getState().set({tab:'screen'})"}, {"wait": 500},
+  {"eval": "[...document.querySelectorAll('.btn.primary')].find(b=>b.textContent.includes('Mulai pantau')).click()"}, {"wait": 1500, "shot": "11-screen"},
+  {"eval": "window.__store.getState().set({tab:'more'})"}, {"wait": 600, "shot": "12-more"},
+  {"eval": "[...document.querySelectorAll('.list-item')].find(b=>b.textContent.includes('Pengaturan')).click()"}, {"wait": 800, "shot": "13-settings"}
+]

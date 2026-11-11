@@ -62,6 +62,11 @@ const sim = {
   async wol() { await wait(300); },
   async speech() { await wait(1200); return { text: 'film komedi terbaru' }; },
   async setVolumeKeys() {},
+  async adbConnect() { await wait(800); },
+  async adbScreenshot() { await wait(500); return { path: 'demo-tv.svg', time: Date.now(), bytes: 1 }; },
+  async adbClose() {},
+  async fetchToFile() { await wait(400); return { path: 'demo-tv.svg', time: Date.now() }; },
+  async castSettings() { await wait(200); return { opened: 'sim' }; },
 };
 
 function call(name, args = {}) {

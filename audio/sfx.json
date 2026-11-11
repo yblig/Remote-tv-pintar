@@ -1,0 +1,18 @@
+{
+  "btn":       { "preset": "tap", "pitch": 1.05, "volume": 0.7 },
+  "nav":       { "preset": "tick", "pitch": 1.25, "volume": 0.6 },
+  "ok":        { "preset": "click", "pitch": 0.9, "volume": 0.8 },
+  "vol":       { "preset": "tick", "pitch": 0.9, "volume": 0.6 },
+  "power":     { "preset": "thud", "pitch": 1.3, "volume": 0.7, "lowpass": 2600 },
+  "select":    { "preset": "select", "pitch": 1.1, "volume": 0.5 },
+  "toggle":    { "preset": "toggle", "volume": 0.6 },
+  "whoosh":    { "preset": "whoosh", "pitch": 1.3, "volume": 0.35 },
+  "back":      { "preset": "back", "volume": 0.5 },
+  "confirm":   { "preset": "confirm", "volume": 0.6 },
+  "connected": { "preset": "unlock", "volume": 0.6, "reverb": [0.3, 0.2] },
+  "error":     { "preset": "error", "volume": 0.55 },
+  "type":      { "preset": "type", "volume": 0.5 },
+  "notify":    { "preset": "notify", "volume": 0.6 },
+  "scan":      { "preset": "charge", "pitch": 1.4, "volume": 0.3, "lowpass": 3000 },
+  "found":     { "preset": "pickup", "pitch": 1.1, "volume": 0.5 }
+}

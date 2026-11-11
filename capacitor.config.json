@@ -2,9 +2,19 @@
   "appId": "com.yblig.remotetvpintar",
   "appName": "Remote TV Pintar",
   "webDir": "dist",
-  "android": { "backgroundColor": "#000000" },
+  "android": {
+    "backgroundColor": "#0b0e17"
+  },
   "plugins": {
-    "SplashScreen": { "launchShowDuration": 600, "launchAutoHide": true, "showSpinner": false },
-    "SystemBars": { "insetsHandling": "css", "hidden": false }
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": false,
+      "showSpinner": false,
+      "backgroundColor": "#0b0e17"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "hidden": false
+    }
   }
 }

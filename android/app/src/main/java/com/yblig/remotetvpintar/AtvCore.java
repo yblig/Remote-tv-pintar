@@ -343,4 +343,8 @@ final class AtvCore {
     }
 
     String host() { return host; }
+
+    PrivateKey key() throws Exception { ensureCert(); return privateKey; }
+
+    RSAPublicKey pub() throws Exception { ensureCert(); return (RSAPublicKey) cert.getPublicKey(); }
 }
