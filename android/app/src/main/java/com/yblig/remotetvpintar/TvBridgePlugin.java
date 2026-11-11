@@ -637,6 +637,19 @@ public class TvBridgePlugin extends Plugin {
     }
 
     // Pushes base64 data to a file on the TV by appending valid base64 chunks and decoding in-shell.
+    private void pushBase64(String host, String path, String b64) throws Exception {
+        String bin = hasToybox(host) ? "toybox base64" : "base64";
+        adbRun(host, ": > '" + path + "'");
+        int cap = Math.max(2048, adb.maxData() - 1024);
+        int CH = Math.min(48 * 1024, cap) / 4 * 4; // multiple of 4, within one ADB payload
+        for (int i = 0; i < b64.length(); i += CH) {
+            String chunk = b64.substring(i, Math.min(b64.length(), i + CH));
+            byte[] out = adbRun(host, "echo '" + chunk + "' | " + bin + " -d >> '" + path + "'");
+            String s = new String(out, StandardCharsets.UTF_8);
+            if (s.toLowerCase().contains("not found") || s.toLowerCase().contains("usage:")) throw new Exception("PUSH_FAILED " + s.trim());
+        }
+    }
+
     @PluginMethod
     public void adbPush(final PluginCall call) {
         final String host = call.getString("host");
@@ -644,16 +657,7 @@ public class TvBridgePlugin extends Plugin {
         final String b64 = call.getString("data", "");
         adbPool.execute(() -> {
             try {
-                String bin = hasToybox(host) ? "toybox base64" : "base64";
-                adbRun(host, ": > '" + path + "'");
-                int cap = Math.max(2048, adb.maxData() - 1024);
-                int CH = Math.min(48 * 1024, cap) / 4 * 4; // multiple of 4, within one ADB payload
-                for (int i = 0; i < b64.length(); i += CH) {
-                    String chunk = b64.substring(i, Math.min(b64.length(), i + CH));
-                    byte[] out = adbRun(host, "echo '" + chunk + "' | " + bin + " -d >> '" + path + "'");
-                    String s = new String(out, StandardCharsets.UTF_8);
-                    if (s.toLowerCase().contains("not found") || s.toLowerCase().contains("usage:")) throw new Exception("PUSH_FAILED " + s.trim());
-                }
+                pushBase64(host, path, b64);
                 byte[] sz = adbRun(host, "wc -c < '" + path + "' 2>/dev/null; ls -l '" + path + "' 2>&1");
                 JSObject r = new JSObject();
                 r.put("info", new String(sz, StandardCharsets.UTF_8).trim());
@@ -662,6 +666,49 @@ public class TvBridgePlugin extends Plugin {
                 call.reject(err(e));
             }
         });
+    }
+
+    // Installs (once) the small companion app on the TV that actually shows images and
+    // plays audio/TTS, since many Android TVs have no app to handle VIEW intents.
+    private static final String HELPER_PKG = "com.yblig.rtpcast";
+    private static final String HELPER_VER = "1.2";
+
+    @PluginMethod
+    public void castEnsure(final PluginCall call) {
+        final String host = call.getString("host");
+        adbPool.execute(() -> {
+            StringBuilder log = new StringBuilder();
+            try {
+                String ver = new String(adbRun(host, "dumpsys package " + HELPER_PKG + " | grep -m1 versionName"), StandardCharsets.UTF_8).trim();
+                if (ver.contains("versionName=" + HELPER_VER)) {
+                    JSObject r = new JSObject(); r.put("installed", true); r.put("already", true); call.resolve(r); return;
+                }
+                byte[] apk;
+                try (InputStream in = getContext().getAssets().open("tvhelper.apk")) { apk = readStream(in); }
+                log.append("apk ").append(apk.length).append("B; ");
+                String tmp = "/data/local/tmp/rtpcast.apk";
+                pushBase64(host, tmp, android.util.Base64.encodeToString(apk, android.util.Base64.NO_WRAP));
+                String out = "";
+                for (String cmd : new String[]{"pm install -r -t -g " + tmp, "pm install -r -t " + tmp, "pm install -r " + tmp}) {
+                    out = new String(adbRun(host, cmd + " 2>&1"), StandardCharsets.UTF_8).trim();
+                    log.append(cmd.replace(tmp, "apk")).append(" → ").append(out).append("; ");
+                    if (out.contains("Success")) {
+                        JSObject r = new JSObject(); r.put("installed", true); r.put("log", log.toString()); call.resolve(r); return;
+                    }
+                }
+                throw new Exception("INSTALL_FAILED " + log);
+            } catch (Exception e) {
+                call.reject(err(e) + " | " + log);
+            }
+        });
+    }
+
+    private static byte[] readStream(InputStream in) throws Exception {
+        ByteArrayOutputStream o = new ByteArrayOutputStream();
+        byte[] b = new byte[32768];
+        int n;
+        while ((n = in.read(b)) > 0) o.write(b, 0, n);
+        return o.toByteArray();
     }
 
     private Boolean toybox = null;

@@ -67,7 +67,8 @@ const sim = {
   async adbClose() {},
   async fetchToFile() { await wait(400); return { path: 'demo-tv.svg', time: Date.now() }; },
   async castSettings() { await wait(200); return { opened: 'sim' }; },
-  async adbShell({ cmd }) { await wait(120); return { out: 'Starting: Intent { act=android.intent.action.VIEW }' }; },
+  async adbShell({ cmd }) { await wait(120); return { out: cmd.includes('start-foreground-service') || cmd.includes('-n com.yblig') ? 'Starting service: Intent' : 'Starting: Intent' }; },
+  async castEnsure() { await wait(600); return { installed: true, already: true }; },
   async adbPush() { await wait(300); return { info: '81234' }; },
   async ttsToFile({ text }) { await wait(500); return { data: '', ext: 'wav', empty: true, said: text }; },
 };

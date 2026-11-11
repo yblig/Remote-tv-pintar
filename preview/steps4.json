@@ -1,0 +1,11 @@
+[
+  {"eval": "window.__store.getState().set({onboarded:true})"}, {"wait": 400},
+  {"eval": "document.querySelector('.card .btn.primary').click()"}, {"wait": 3300},
+  {"eval": "document.querySelector('.list-item.pop-in').click()"}, {"wait": 2000},
+  {"eval": "window.__store.getState().pairing.submit('A1B2C3')"}, {"wait": 1200},
+  {"eval": "window.__store.getState().set({tab:'screen'})"}, {"wait": 500},
+  {"eval": "document.querySelector('.scroll').scrollTo(0, 520)"}, {"wait": 300},
+  {"eval": "[...document.querySelectorAll('.jahil .btn')].find(b=>b.textContent.includes('Siapkan')).click()"}, {"wait": 1200, "shot": "a-prepared"},
+  {"eval": "[...document.querySelectorAll('.scare-btn')][0].click()"}, {"wait": 900, "shot": "b-scared"},
+  {"eval": "[...document.querySelectorAll('.jahil .btn.primary')].pop().click()"}, {"wait": 900, "shot": "c-spoke"}
+]

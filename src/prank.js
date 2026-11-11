@@ -1,73 +1,66 @@
-// "Jahil" (prank) features on Android TV via the ADB channel:
-// push an image that pops up instantly, dismiss it, and make the TV speak /
-// play your recorded voice. Android-TV only (needs the debugging channel).
+// "Jahil" (prank) features on Android TV. Because most Android TVs have no app
+// that can open an image or play audio from an intent, the phone installs a tiny
+// companion app (com.yblig.rtpcast) over the same ADB channel; that app shows the
+// image fullscreen and plays audio / speaks text on the TV itself.
 import { bridge } from './bridge.js';
 import { useStore } from './store.js';
-import { fx } from './sfx.js';
 
 const IMG = '/data/local/tmp/rtp_scare.jpg';
 const AUD = '/data/local/tmp/rtp_voice';
+const ACT = 'com.yblig.rtpcast/.CastActivity';
+const SVC = 'com.yblig.rtpcast/.CastService';
 
 const host = () => useStore.getState().activeTv()?.host;
 const stripB64 = d => d.includes(',') ? d.slice(d.indexOf(',') + 1) : d;
-const failed = out => /error|unable to resolve|does not exist|not found|exception/i.test(out || '');
+const failed = out => /error|unable to resolve|does not exist|not found|no activity|exception|denied/i.test(out || '');
+const esc = t => "'" + String(t).replace(/'/g, "'\\''").replace(/\n/g, ' ') + "'";
 
 export function prankSupported() {
-  const d = useStore.getState().activeTv();
-  // The ADB push/launch path only exists on Android TV / Google TV.
-  return d?.type === 'androidtv';
+  return useStore.getState().activeTv()?.type === 'androidtv';
 }
 
 async function shell(cmd) { return (await bridge.call('adbShell', { host: host(), cmd })).out || ''; }
 
-// Pushes the image to the TV ahead of time so it can appear with no loading.
+let ensured = false;
+async function ensureHelper() {
+  if (ensured) return;
+  await bridge.call('castEnsure', { host: host() }); // installs the companion app once
+  ensured = true;
+}
+
+// Pushes the image to the TV ahead of time so it appears instantly on KAGETKAN.
 export async function prepareImage(dataUrl) {
+  await ensureHelper();
   await bridge.call('adbPush', { host: host(), path: IMG, data: stripB64(dataUrl) });
 }
 
-const VIEW_IMG = [
-  `am start -a android.intent.action.VIEW -d file://${IMG} -t image/jpeg --activity-clear-task -f 0x14000000`,
-  `am start -a android.intent.action.VIEW -d file://${IMG} -t image/* -f 0x10000000`,
-  `am start -n com.google.android.apps.photos/.home.HomeActivity -a android.intent.action.VIEW -d file://${IMG} -t image/jpeg`,
-  `am start -n com.estrongs.android.pop/.view.FileExplorerActivity -d file://${IMG} -t image/jpeg`,
-];
-
-// Launches the image fullscreen. Returns { ok, log } so the UI can show what the TV said.
 export async function showImage() {
-  let log = '';
-  for (const cmd of VIEW_IMG) {
-    let out;
-    try { out = await shell(cmd); } catch (e) { log += '• ' + String(e?.message || e) + '\n'; continue; }
-    log += '• ' + cmd.split(' ').slice(0, 6).join(' ') + ' → ' + out.trim().replace(/\n/g, ' ').slice(0, 90) + '\n';
-    if (!failed(out)) return { ok: true, log };
-  }
-  return { ok: false, log };
+  await ensureHelper();
+  const out = await shell(`am start -n ${ACT} --es img ${IMG} -f 0x14000000`);
+  return { ok: !failed(out), log: out.trim() };
 }
 
 export async function hideImage() {
+  try { await shell(`am start -n ${ACT} --es action close`); } catch { /* ignore */ }
   try { await shell('input keyevent KEYCODE_HOME'); } catch { /* ignore */ }
 }
 
-const VIEW_AUD = ext => [
-  `am start -a android.intent.action.VIEW -d file://${AUD}.${ext} -t audio/* -f 0x10000000`,
-  `am start -a android.intent.action.VIEW -d file://${AUD}.${ext} -t audio/mpeg`,
-];
-
-export async function playAudio(base64, ext = 'm4a') {
-  await bridge.call('adbPush', { host: host(), path: `${AUD}.${ext}`, data: stripB64(base64) });
-  let log = '';
-  for (const cmd of VIEW_AUD(ext)) {
-    let out;
-    try { out = await shell(cmd); } catch (e) { log += String(e?.message || e) + '\n'; continue; }
-    log += out.trim().slice(0, 80) + '\n';
-    if (!failed(out)) return { ok: true, log };
-  }
-  return { ok: false, log };
+async function startService(args) {
+  await ensureHelper();
+  let out = await shell(`am start-foreground-service -n ${SVC} ${args}`);
+  if (failed(out)) out += '\n' + await shell(`am startservice -n ${SVC} ${args}`);
+  return { ok: !failed(out), log: out.trim() };
 }
 
-// Text → the phone's TTS engine → WAV → played on the TV.
+// Record-your-voice: push the clip, then the companion app plays it on the TV.
+export async function playAudio(base64, ext = 'm4a') {
+  await ensureHelper();
+  await bridge.call('adbPush', { host: host(), path: `${AUD}.${ext}`, data: stripB64(base64) });
+  return startService(`--es audio ${AUD}.${ext}`);
+}
+
+// Type-to-speak: the TV's own text-to-speech says it (no screen takeover).
 export async function speak(text, lang = 'id') {
-  const r = await bridge.call('ttsToFile', { text, lang });
-  if (r.empty || !r.data) { fx.confirm(); useStore.getState().showToast('Diputar di TV (simulasi)'); return { ok: true, log: 'sim' }; }
-  return playAudio(r.data, r.ext || 'wav');
+  if (!text.trim()) return { ok: false, log: 'empty' };
+  return startService(`--es say ${esc(text)} --es lang ${lang}`);
 }

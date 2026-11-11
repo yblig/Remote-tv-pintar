@@ -143,13 +143,12 @@ function Prank() {
     setBusy('');
   };
   const scare = async () => {
-    fx.power(); setBusy('show');
+    fx.press('power'); setBusy('show');
     try {
       let key = prepared;
       if (prepared !== curKey) { await prepareImage(await curJpeg()); key = curKey; setPrepared(curKey); }
       const r = await showImage();
-      setLog(r.log);
-      if (r.ok) { fx.notify(); useStore.getState().showToast('KAGET! 👻'); } else { fx.error(); useStore.getState().showToast('TV ini tak punya pembuka gambar — lihat detail', 'error'); }
+      if (r.ok) { setLog(''); fx.notify(); useStore.getState().showToast('KAGET! 👻'); } else { setLog(r.log); fx.error(); useStore.getState().showToast('Gagal menampilkan — lihat detail', 'error'); }
     } catch (e) { fx.error(); setLog(String(e?.message || e)); }
     setBusy('');
   };

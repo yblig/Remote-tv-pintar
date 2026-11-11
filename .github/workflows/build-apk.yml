@@ -59,6 +59,15 @@ jobs:
             echo "No KEYSTORE_BASE64 secret; signing with the repo's sideload keystore"
           fi
 
+      - name: Build TV helper APK (bundled into the app assets)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :tvhelper:assembleDebug --no-daemon --stacktrace
+          mkdir -p app/src/main/assets
+          cp tvhelper/build/outputs/apk/debug/tvhelper-debug.apk app/src/main/assets/tvhelper.apk
+          ls -l app/src/main/assets/tvhelper.apk
+
       - name: Build release APK
         working-directory: android
         env:
@@ -67,7 +76,7 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Name the APK
         id: apk
